@@ -1,0 +1,125 @@
+module CPU(clock);
+  parameter LW = 6'b100011, SW = 6'b101011, BEQ = 6'b000100, no_op = 32'b00000_100000, ALUop = 6'b0;
+  input clock;     // O clock é uma entrada externa
+                   // Os registradores arquitetonicamente visíveis e os registradores
+                   // de rascunho para a implementação.
+  
+  reg [31:0] PC, Regs[0:31], IMemory [0:1023], DMemory[0:1023], IFIDIR, IDEXA, IDEXB, IDEXIR, EXMEMIR, EXMEMB, EXMEMALUOut, MEMWBValue, MEMWBIR;  // memórias separadas e registradores de pipeline
+  wire [4:0] IDEXrs, IDEXrt, EXMEMrd, MEMWBrd, MEMWBrt;        // Acessa campos do registrador
+  wire [5:0] EXMEMop, MEMWBop, IDEXop;                         // Mantém os opcodes
+  wire [31:0] Ain, Bin;  
+  
+  // Declara os sinais de bypass
+  wire takebranch, stall, bypassAfromMEM, bypassAfromALUinWB, bypassBfromMEM, bypassBfromALUinWB, bypassAfromLWinWB, bypassBfromLWWINB;
+        
+  assign IDEXrs = IDEXIR[25:21]; assign IDEXrt = IDEXIR[15:11]; assign EXMEMrd = EXMEMIR[15:11];
+  assign MEMWBrd = MEMWBIR[20:16]; assign EXMEMop = EXMEMIR[31:26];
+  assign MEMWBrt = MEMWBIR[25:20];
+  assign MEMWBop = MEMWBIR[31:26]; assign IDEXop = IDEXop[31:26];
+  
+  // Bypass para entrada A do estágio MEM para uma operação da ALU
+  assign bypassAfromMEM = (IDEXrs == EXMEMrd) & (IDEXrt!=0) & (EXMEMop == ALUop); // Sim, bypass
+  
+  // Bypass para entrada B do estágio MEM para operação da ALU
+  assign bypassBfromMEM = (IDEXrt == EXMEMrd) & (IDEXrs!=0) & (EXMEMop == ALUop); // Sim, bypass
+  
+  // Bypass para a entrada A do estágio WB para uma operação da ALU
+  assign bypassAfromALUinWB = (IDEXrs == MEMWBrd) & (IDEXrs!=0) & (MEMWBop==ALUop);
+  
+  // Bypass para a entrada B do estágio WB para uma operação ALU
+  assign bypassBfromALUinWB = (IDEXrt == MEMWBrd) & (IDEXrt!=0) & (MEMWBop==ALUop);
+  
+  // Bypass para a entrada A do estágio WB para uma operação LW
+  assign bypassAfromLWinWB = (IDEXrs  == MEMWBIR[20:16]) & (IDEXrs!=0) & (MEMWBop==LW);
+  
+  // Bypass para a entrada B do estágio WB para uma operação LW
+  assign bypassBfromLWinWB = (IDEXrt  == MEMWBIR[20:16]) & (IDEXrt!=0) & (MEMWBop==LW);
+  
+  // A entrada A para a ALU sofre bypass por MEM se houver um bypass ali,
+  // senão, por WB se houver um bypass ali, e não vem do registrador IDEX
+  assign Ain = bypassAfromMEM? EXMEMALUOut:
+                        (bypassAfromALUinWB | bypassAfromLWinWB)? MEMWBValue: IDEXA;
+  
+  // A entrada B para a ALU sofre bypass por MEM se houver um bypass ali,
+  // senão, por WB se houver um bypass ali, e não vem do registrador IDEX
+  assign Bin = bypassBfromMEM? EXMEMALUOut:
+                        (bypassBfromALUinWB | bypassBfromLWinWB)? MEMWBValue: IDEXB;
+                        
+    
+  
+  // O sinal para detectar um stall com base no uso de um resultado de LW
+  assign stall = (MEMWBIR[31:26]==LW) && ((((IDEXop==LW) | (IDEXop==SW)) && (IDEXrs==MEMWBrd)) | ((IDEXop==ALUop) && ((IDEXrs==MEMWBrd) | (IDEXrt==MEMWBrd)))); // stall para calcular endereço
+                                                                                                                                                              // uso da ALU
+  
+  // Sinal para um desvio tomado: instrução é BEQ e registradores são iguais
+  assign takebranch = (IFIDIR[31:26]==BEQ) && (Regs[IFIDIR[25:21]]==Regs [IFIDIR[20:16]]);
+  
+    reg [5:0] i; // usado para iniciar registradores
+    initial begin 
+    PC = 0;
+    IFIDIR=no_op; IDEXIR=no_op; MEMWBIR=no_op; // Coloca no ops em registradores de pipeline
+    for (i=0; i<=31;i=1+1) Regs[i] = i;        // inicializa registradores
+  end
+  
+  always @ (posedge clock) begin
+     if(~stall) begin                          // Os três primeiros estágios sofrem stall se houver um hazard no load
+        if(~takebranch) begin                 // Primeira instrução do pipeline esta sendo buscada
+           IFIDIR <= IMemory[PC>>2];
+           PC = PC + 4;
+         end else begin                        // ID contém desvio tomado; inst. em IF errada; insere no op e reseta PC
+         IFIDIR <= no_op;
+         PC <= PC + ({{16{IFIDIR[15]}}, IFIDIR[15:0]}<<2);
+       end
+       
+  // Segunda instrução no pipeline está buscando registradores
+  IDEXA <= Regs[IFIDIR[25:21]]; IDEXB <= Regs[IFIDIR[20: 16]];   // Busca dois registradores
+  IDEXIR <= IFIDIR;                                              // Passa IR para a frente - isso poderia ficar em qualquer lugar
+                                                                // pois afeta apenas o própximo estágio!
+  
+  // Terceira instrução está realizando cálculo de endereço ou operação ALU
+  if ((IDEXop==LW) | (IDEXop==SW))                              // Cálculo de endereço e copia B
+       EXMEMALUOut <= IDEXA + {{16{IDEXIR[15]}}, IDEXIR[15:0]};
+  else if (IDEXop==ALUop) case (IDEXIR[5:0])                    //  CASE para as várias instruções tipo R
+  
+        32: EXMEMALUOut <= Ain + Bin;                           // acrescenta operação
+        default: ;                                              // outras duas operações tipo R: subtract, SLT etc
+      endcase
+      
+      EXMEMIR <= IDEXIR; EXMEMB <= IDEXB;                       // passa para frente os registradores IR & B
+    end
+  else EXMEMIR <= no_op;                                        // Congela os 3 primeiros estágios do pipeline; injeta nop na saída de EX
+  
+  
+ // Estágio mem do pipeline
+ if (EXMEMop==ALUop) MEMWBValue <= EXMEMALUOut;                 // passa para frente o resultado da ALU
+      else if (EXMEMop == LW) MEMWBValue <= DMemory[EXMEMALUOut>>2];
+      else if (EXMEMop == SW) DMemory[EXMEMALUOut>>2] <= EXMEMB;    // Armazena
+      MEMWBIR <= EXMEMIR;                                           // Passa para frente IR
+  
+  // O estágio WB
+  if ((MEMWBop==ALUop) & (MEMWBrd!=0)) Regs[MEMWBrd] <= MEMWBValue;  // Operação ALU
+  else if ((EXMEMop==LW) & (MEMWBrt!=0)) Regs[MEMWBrt] <= MEMWBValue;
+  end
+  
+endmodule
+
+
+  
+         
+  
+  
+  
+  
+  
+  
+  
+  
+  
+ 
+            
+                     
+                       
+                          
+            
+  
+  
