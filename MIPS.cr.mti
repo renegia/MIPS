@@ -1,5 +1,7 @@
 C:/altera/Projetos/MIPS/MIPS.v {0 {vlog -work work C:/altera/Projetos/MIPS/MIPS.v
 Model Technology ModelSim ALTERA vlog 10.1b Compiler 2012.04 Apr 27 2012
-** Error: C:/altera/Projetos/MIPS/MIPS.v(13): near "always": syntax error, unexpected always, expecting class
+-- Compiling module CPU
+** Error: C:/altera/Projetos/MIPS/MIPS.v(27): 'clock' already declared in this scope (CPU) with a conflicting net type.
+** Error: C:/altera/Projetos/MIPS/MIPS.v(12): Identifier must be declared with a port mode: clock.
 
-} {3.0 4.0} {}}
+} {4.0 6.0} {}}

@@ -4,22 +4,22 @@ K3
 cModel Technology
 Z0 dC:\altera\Projetos\ProjeCount16
 vCPU
-!i10b 1
-!s100 Wz^D1FWXJSn0[g9:kXDK90
-ILF:WJe?X6JfD@nJAhndeD0
-Z1 Ve25nY>EXQ69n69KGo@cCA1
-dC:\Users\MarcusRene\Documents\GitHub\MIPS
-w1383311336
-Z2 8C:/altera/Projetos/MIPS/MIPS.v
-Z3 FC:/altera/Projetos/MIPS/MIPS.v
+Z1 ILF:WJe?X6JfD@nJAhndeD0
+Z2 Ve25nY>EXQ69n69KGo@cCA1
+Z3 dC:\Users\MarcusRene\Documents\GitHub\MIPS
+Z4 w1383311336
+Z5 8C:/altera/Projetos/MIPS/MIPS.v
+Z6 FC:/altera/Projetos/MIPS/MIPS.v
 L0 11
-Z4 OV;L;10.1b;51
+Z7 OV;L;10.1b;51
 r1
-!s85 0
 31
-!s108 1383311336.592000
-!s107 C:/altera/Projetos/MIPS/MIPS.v|
-Z5 !s90 -reportprogress|300|-work|work|C:/altera/Projetos/MIPS/MIPS.v|
+Z8 !s90 -reportprogress|300|-work|work|C:/altera/Projetos/MIPS/MIPS.v|
+Z9 o-work work -O0
+Z10 n@c@p@u
+Z11 !s100 Wz^D1FWXJSn0[g9:kXDK90
+Z12 !s108 1383311336.592000
+Z13 !s107 C:/altera/Projetos/MIPS/MIPS.v|
+!i10b 1
+!s85 0
 !s101 -O0
-Z6 o-work work -O0
-Z7 n@c@p@u
